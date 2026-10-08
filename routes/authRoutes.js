@@ -3,7 +3,7 @@ const router = express.Router();
 
 // --- CONTROLLER IMPORTS ---
 const authController = require('../controllers/authController');
-// const { protect } = require('../middleware/authMiddleware'); // We will uncomment this when we build the middleware
+const { protect } = require('../middleware/authMiddleware'); // Now fully imported!
 
 // --- TEST ROUTE ---
 router.get('/test', (req, res) => {
@@ -11,7 +11,10 @@ router.get('/test', (req, res) => {
 });
 
 // --- AUTH ROUTES ---
-router.post('/sync', authController.syncUser);
-router.get('/me', authController.getMe);
+// Sync route now uses 'protect' because it needs req.user from the token
+router.post('/sync', protect, authController.syncUser);
+
+// Get current user profile (Protected)
+router.get('/me', protect, authController.getMe);
 
 module.exports = router;
