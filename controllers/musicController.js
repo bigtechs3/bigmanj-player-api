@@ -1,7 +1,6 @@
-const axios = require('axios');
+const apiServices = require('../services/apiServices');
 
 // --- SEARCH SONG ---
-// This handles searching for songs using the Azbry API you found
 exports.searchSong = async (req, res) => {
     try {
         const query = req.query.q;
@@ -9,11 +8,9 @@ exports.searchSong = async (req, res) => {
             return res.status(400).json({ error: "Please provide a search query" });
         }
 
-        // Calling the Azbry YouTube Search API
-        const response = await axios.get(`https://api.azbry.com/api/search/yts?q=${query}`);
-        
-        // Sending the data back to your app
-        res.json(response.data);
+        // Uses the service to search YouTube
+        const data = await apiServices.searchYouTube(query);
+        res.json(data);
 
     } catch (error) {
         console.error("Search Error:", error.message);
@@ -22,7 +19,6 @@ exports.searchSong = async (req, res) => {
 };
 
 // --- GET LYRICS ---
-// This handles fetching lyrics using the Nexray API you found
 exports.getLyrics = async (req, res) => {
     try {
         const query = req.query.q;
@@ -30,11 +26,9 @@ exports.getLyrics = async (req, res) => {
             return res.status(400).json({ error: "Please provide a song name for lyrics" });
         }
 
-        // Calling the Nexray Lyrics API
-        const response = await axios.get(`https://api.nexray.eu.cc/search/lyrics?q=${query}`);
-        
-        // Sending the lyrics data back to your app
-        res.json(response.data);
+        // Uses the service to get lyrics
+        const data = await apiServices.getLyrics(query);
+        res.json(data);
 
     } catch (error) {
         console.error("Lyrics Error:", error.message);
@@ -42,11 +36,21 @@ exports.getLyrics = async (req, res) => {
     }
 };
 
+// --- GET TRENDING SONGS ---
+exports.getTrending = async (req, res) => {
+    try {
+        const data = await apiServices.getTrendingSongs();
+        res.json(data);
+    } catch (error) {
+        console.error("Trending Error:", error.message);
+        res.status(500).json({ error: "Failed to fetch trending songs" });
+    }
+};
+
 // --- SHAZAM / IDENTIFY SONG ---
-// This is a placeholder for the Shazam feature. We will add file uploads later.
 exports.identifySong = async (req, res) => {
     try {
-        // For now, just return a message. We will integrate the audio upload logic in the next phase.
+        // Placeholder - will be handled by shazamController
         res.json({ status: true, message: "Shazam feature coming soon!" });
     } catch (error) {
         console.error("Shazam Error:", error.message);
