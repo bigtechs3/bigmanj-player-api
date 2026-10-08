@@ -13,6 +13,7 @@ router.get('/test', (req, res) => {
 // --- APP ROUTES ---
 router.get('/search', musicController.searchSong);
 router.get('/lyrics', musicController.getLyrics);
+router.get('/trending', musicController.getTrending); // <-- NEW TRENDING ROUTE
 
 // The shazam route uses the multer middleware to handle the audio upload
 router.post('/shazam', shazamController.uploadAudio, shazamController.identifySong);
