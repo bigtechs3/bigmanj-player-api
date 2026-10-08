@@ -23,8 +23,9 @@ app.get('/', (req, res) => {
     res.send('Bigmanj Player API is running... 🚀');
 });
 
-// 6. Main API Routes (This connects to routes/apiRoutes.js)
+// 6. Main API Routes
 app.use('/api', require('./routes/apiRoutes'));
+app.use('/api/auth', require('./routes/authRoutes')); // <-- AUTH ROUTES ADDED HERE
 
 // 7. Start the server
 const PORT = process.env.PORT || 5000;
