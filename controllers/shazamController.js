@@ -1,7 +1,8 @@
-const axios = require('axios');
 const FormData = require('form-data');
 const fs = require('fs');
 const multer = require('multer');
+const axios = require('axios');
+const apiServices = require('../services/apiServices');
 
 // Set up multer to temporarily save the uploaded audio file on the server
 const upload = multer({ dest: 'uploads/' });
@@ -18,7 +19,6 @@ exports.identifySong = async (req, res) => {
         }
 
         // 2. Upload the temporary file to Uguu.se to get a public URL
-        // (The Nexray API requires a URL, not a direct file upload)
         const formData = new FormData();
         formData.append('files[]', fs.createReadStream(req.file.path));
 
@@ -28,14 +28,14 @@ exports.identifySong = async (req, res) => {
 
         const fileUrl = uguuResponse.data.files[0].url;
 
-        // 3. Send the URL to the Nexray Shazam API
-        const nexrayResponse = await axios.get(`https://api.nexray.eu.cc/tools/whatsmusic?url=${encodeURIComponent(fileUrl)}`);
+        // 3. Send the URL to the Nexray Shazam API via our service
+        const data = await apiServices.identifySongByUrl(fileUrl);
 
         // 4. Delete the temporary file from our server to save space
         fs.unlinkSync(req.file.path);
 
         // 5. Send the identified song data back to the app
-        res.json(nexrayResponse.data);
+        res.json(data);
 
     } catch (error) {
         console.error("Shazam Error:", error.message);
