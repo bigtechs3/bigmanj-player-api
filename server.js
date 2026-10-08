@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
 const connectDB = require('./config/db');
+const { notFound, errorHandler } = require('./middleware/errorMiddleware');
 
 // 1. Load environment variables from .env file
 dotenv.config();
@@ -25,9 +26,13 @@ app.get('/', (req, res) => {
 
 // 6. Main API Routes
 app.use('/api', require('./routes/apiRoutes'));
-app.use('/api/auth', require('./routes/authRoutes')); // <-- AUTH ROUTES ADDED HERE
+app.use('/api/auth', require('./routes/authRoutes'));
 
-// 7. Start the server
+// 7. Error Handling Middleware (MUST BE LAST)
+app.use(notFound);
+app.use(errorHandler);
+
+// 8. Start the server
 const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, () => {
