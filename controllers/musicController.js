@@ -1,5 +1,7 @@
 const apiServices = require('../services/apiServices');
-const axios = require('axios');
+const { exec } = require('child_process');
+const fs = require('fs');
+const path = require('path');
 
 exports.searchSong = async (req, res) => {
     try {
@@ -47,63 +49,35 @@ exports.getDownloadLink = async (req, res) => {
     }
 };
 
+// --- STREAM AUDIO DIRECTLY FROM AWS USING YT-DLP + PO TOKEN PROVIDER ---
 exports.streamAudio = async (req, res) => {
     try {
         const { videoId } = req.query;
         if (!videoId) return res.status(400).json({ error: "Video ID is required" });
 
-        const instances = [
-            'https://pipedapi.leptons.xyz',
-            'https://piped-api.lunar.icu',
-            'https://pipedapi.r4fo.com',
-            'https://pipedapi.ngn.tf',
-            'https://pipedapi.kavin.rocks',
-            'https://pipedapi.adminforge.de'
-        ];
+        const videoUrl = `https://www.youtube.com/watch?v=${videoId}`;
+        const outputPath = path.join(__dirname, `../temp_${videoId}.mp3`);
 
-        let audioUrl = null;
-        let lastError = null;
+        // Command uses Node runtime and local Docker PO Token Provider
+        const command = `yt-dlp -x --audio-format mp3 --js-runtimes node --extractor-args "youtubepot-bgutilhttp:base_url=http://127.0.0.1:4416" -o "${outputPath}" "${videoUrl}"`;
 
-        for (const instance of instances) {
-            try {
-                console.log(`Trying Piped instance: ${instance}`);
-                const response = await axios.get(`${instance}/streams/${videoId}`, { timeout: 5000 });
-                
-                if (response.data && response.data.audioStreams && response.data.audioStreams.length > 0) {
-                    audioUrl = response.data.audioStreams[0].url;
-                    console.log(`Success with instance: ${instance}`);
-                    break;
+        exec(command, (error, stdout, stderr) => {
+            if (error) {
+                console.error(`yt-dlp error: ${error.message}`);
+                console.error(`yt-dlp stderr: ${stderr}`);
+                return res.status(500).json({ error: "Failed to download audio" });
+            }
+
+            // Send the file to the app
+            res.sendFile(outputPath, (err) => {
+                // Delete the file after sending to save space
+                if (!err) {
+                    fs.unlink(outputPath, (unlinkErr) => {
+                        if (unlinkErr) console.error("Failed to delete temp file:", unlinkErr);
+                    });
                 }
-            } catch (err) {
-                console.log(`Piped instance ${instance} failed: ${err.message}`);
-                lastError = err;
-            }
-        }
-
-        if (!audioUrl) {
-            console.error("All Piped instances failed. Last error:", lastError);
-            return res.status(500).json({ error: "Could not find audio stream on any Piped instance" });
-        }
-
-        const streamResponse = await axios({
-            method: 'get',
-            url: audioUrl,
-            responseType: 'stream',
-            headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                'Range': req.headers.range || 'bytes=0-'
-            }
+            });
         });
-
-        res.setHeader('Content-Type', 'audio/mpeg');
-        if (streamResponse.headers['content-length']) {
-            res.setHeader('Content-Length', streamResponse.headers['content-length']);
-        }
-        if (streamResponse.headers['accept-ranges']) {
-            res.setHeader('Accept-Ranges', streamResponse.headers['accept-ranges']);
-        }
-        
-        streamResponse.data.pipe(res);
 
     } catch (error) {
         console.error("Stream Error:", error.message);
