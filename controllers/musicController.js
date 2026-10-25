@@ -47,13 +47,11 @@ exports.getDownloadLink = async (req, res) => {
     }
 };
 
-// --- STREAM AUDIO USING UPDATED PIPED INSTANCES ---
 exports.streamAudio = async (req, res) => {
     try {
         const { videoId } = req.query;
         if (!videoId) return res.status(400).json({ error: "Video ID is required" });
 
-        // Fresh list of Piped instances
         const instances = [
             'https://pipedapi.leptons.xyz',
             'https://piped-api.lunar.icu',
@@ -72,10 +70,9 @@ exports.streamAudio = async (req, res) => {
                 const response = await axios.get(`${instance}/streams/${videoId}`, { timeout: 5000 });
                 
                 if (response.data && response.data.audioStreams && response.data.audioStreams.length > 0) {
-                    // Get the highest quality audio stream
                     audioUrl = response.data.audioStreams[0].url;
                     console.log(`Success with instance: ${instance}`);
-                    break; // Found a working URL, stop trying
+                    break;
                 }
             } catch (err) {
                 console.log(`Piped instance ${instance} failed: ${err.message}`);
@@ -88,7 +85,6 @@ exports.streamAudio = async (req, res) => {
             return res.status(500).json({ error: "Could not find audio stream on any Piped instance" });
         }
 
-        // Fetch the audio stream and pipe it to the user
         const streamResponse = await axios({
             method: 'get',
             url: audioUrl,
