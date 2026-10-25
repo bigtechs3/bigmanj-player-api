@@ -7,7 +7,6 @@ exports.searchSong = async (req, res) => {
     try {
         const query = req.query.q;
         if (!query) return res.status(400).json({ error: "Please provide a search query" });
-        // We still use the API for searching because it's fast
         const data = await apiServices.searchYouTube(query);
         res.json(data);
     } catch (error) {
@@ -38,6 +37,18 @@ exports.getTrending = async (req, res) => {
     }
 };
 
+exports.getDownloadLink = async (req, res) => {
+    try {
+        const videoUrl = req.query.url;
+        if (!videoUrl) return res.status(400).json({ error: "Video URL is required" });
+        const data = await apiServices.getYtDownloadLink(videoUrl);
+        res.json(data);
+    } catch (error) {
+        console.error("Download Link Error:", error.message);
+        res.status(500).json({ error: "Failed to get MP3 link" });
+    }
+};
+
 // --- NEW: STREAM AUDIO DIRECTLY FROM AWS USING YT-DLP ---
 exports.streamAudio = async (req, res) => {
     try {
@@ -48,7 +59,6 @@ exports.streamAudio = async (req, res) => {
         const outputPath = path.join(__dirname, `../temp_${videoId}.mp3`);
 
         // Command to download and extract audio using yt-dlp
-        // -x: extract audio, --audio-format mp3: convert to mp3, -o: output path
         const command = `yt-dlp -x --audio-format mp3 -o "${outputPath}" "${videoUrl}"`;
 
         exec(command, (error, stdout, stderr) => {
