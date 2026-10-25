@@ -47,37 +47,44 @@ exports.getDownloadLink = async (req, res) => {
     }
 };
 
-// --- NEW: STREAM AUDIO USING PIPED API (Bypasses YouTube bot block) ---
+// --- STREAM AUDIO USING UPDATED PIPED INSTANCES ---
 exports.streamAudio = async (req, res) => {
     try {
         const { videoId } = req.query;
         if (!videoId) return res.status(400).json({ error: "Video ID is required" });
 
-        // We use Piped API to bypass YouTube's AWS bot block
+        // Fresh list of Piped instances
         const instances = [
+            'https://pipedapi.leptons.xyz',
+            'https://piped-api.lunar.icu',
+            'https://pipedapi.r4fo.com',
+            'https://pipedapi.ngn.tf',
             'https://pipedapi.kavin.rocks',
-            'https://pipedapi.adminforge.de',
-            'https://api.piped.private.coffee',
-            'https://pipedapi.reallyaweso.me'
+            'https://pipedapi.adminforge.de'
         ];
 
         let audioUrl = null;
+        let lastError = null;
 
         for (const instance of instances) {
             try {
-                const response = await axios.get(`${instance}/streams/${videoId}`);
-                const audioStreams = response.data.audioStreams;
-                if (audioStreams && audioStreams.length > 0) {
+                console.log(`Trying Piped instance: ${instance}`);
+                const response = await axios.get(`${instance}/streams/${videoId}`, { timeout: 5000 });
+                
+                if (response.data && response.data.audioStreams && response.data.audioStreams.length > 0) {
                     // Get the highest quality audio stream
-                    audioUrl = audioStreams[0].url;
-                    break; // Found a working URL, stop trying other instances
+                    audioUrl = response.data.audioStreams[0].url;
+                    console.log(`Success with instance: ${instance}`);
+                    break; // Found a working URL, stop trying
                 }
             } catch (err) {
-                console.log(`Piped instance ${instance} failed, trying next...`);
+                console.log(`Piped instance ${instance} failed: ${err.message}`);
+                lastError = err;
             }
         }
 
         if (!audioUrl) {
+            console.error("All Piped instances failed. Last error:", lastError);
             return res.status(500).json({ error: "Could not find audio stream on any Piped instance" });
         }
 
