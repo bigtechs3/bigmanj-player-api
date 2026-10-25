@@ -1,10 +1,13 @@
 const apiServices = require('../services/apiServices');
-const axios = require('axios');
+const { exec } = require('child_process');
+const fs = require('fs');
+const path = require('path');
 
 exports.searchSong = async (req, res) => {
     try {
         const query = req.query.q;
         if (!query) return res.status(400).json({ error: "Please provide a search query" });
+        // We still use the API for searching because it's fast
         const data = await apiServices.searchYouTube(query);
         res.json(data);
     } catch (error) {
@@ -35,61 +38,39 @@ exports.getTrending = async (req, res) => {
     }
 };
 
-exports.getDownloadLink = async (req, res) => {
-    try {
-        const videoUrl = req.query.url;
-        if (!videoUrl) return res.status(400).json({ error: "Video URL is required" });
-        const data = await apiServices.getYtDownloadLink(videoUrl);
-        res.json(data);
-    } catch (error) {
-        console.error("Download Link Error:", error.message);
-        res.status(500).json({ error: "Failed to get MP3 link" });
-    }
-};
-
-// --- UPDATED PROXY STREAM FUNCTION ---
+// --- NEW: STREAM AUDIO DIRECTLY FROM AWS USING YT-DLP ---
 exports.streamAudio = async (req, res) => {
     try {
-        const { url } = req.query;
-        if (!url) return res.status(400).json({ error: "URL is required" });
+        const { videoId } = req.query;
+        if (!videoId) return res.status(400).json({ error: "Video ID is required" });
 
-        // Prepare headers for the CDN request
-        const headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            'Referer': 'https://www.youtube.com/'
-        };
+        const videoUrl = `https://www.youtube.com/watch?v=${videoId}`;
+        const outputPath = path.join(__dirname, `../temp_${videoId}.mp3`);
 
-        // Forward the Range header from the browser to the CDN (for streaming)
-        if (req.headers.range) {
-            headers.Range = req.headers.range;
-        }
+        // Command to download and extract audio using yt-dlp
+        // -x: extract audio, --audio-format mp3: convert to mp3, -o: output path
+        const command = `yt-dlp -x --audio-format mp3 -o "${outputPath}" "${videoUrl}"`;
 
-        const response = await axios({
-            method: 'get',
-            url: url,
-            responseType: 'stream',
-            headers: headers
+        exec(command, (error, stdout, stderr) => {
+            if (error) {
+                console.error(`yt-dlp error: ${error.message}`);
+                return res.status(500).json({ error: "Failed to download audio" });
+            }
+
+            // Send the file to the app
+            res.sendFile(outputPath, (err) => {
+                // Delete the file after sending to save space
+                if (!err) {
+                    fs.unlink(outputPath, (unlinkErr) => {
+                        if (unlinkErr) console.error("Failed to delete temp file:", unlinkErr);
+                    });
+                }
+            });
         });
-
-        // Forward the CDN's headers back to the browser
-        res.setHeader('Content-Type', response.headers['content-type'] || 'audio/mpeg');
-        if (response.headers['content-length']) {
-            res.setHeader('Content-Length', response.headers['content-length']);
-        }
-        if (response.headers['accept-ranges']) {
-            res.setHeader('Accept-Ranges', response.headers['accept-ranges']);
-        }
-        
-        // Set the status code (200 or 206 for partial content)
-        res.status(response.status);
-
-        // Pipe the audio data
-        response.data.pipe(res);
 
     } catch (error) {
         console.error("Stream Error:", error.message);
-        const status = error.response ? error.response.status : 500;
-        res.status(status).json({ error: "Failed to stream audio", details: error.message });
+        res.status(500).json({ error: "Failed to stream audio" });
     }
 };
 
