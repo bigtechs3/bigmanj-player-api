@@ -1,7 +1,5 @@
 const apiServices = require('../services/apiServices');
-const { exec } = require('child_process');
-const fs = require('fs');
-const path = require('path');
+const axios = require('axios');
 
 exports.searchSong = async (req, res) => {
     try {
@@ -49,34 +47,60 @@ exports.getDownloadLink = async (req, res) => {
     }
 };
 
-// --- STREAM AUDIO DIRECTLY FROM AWS USING YT-DLP ---
+// --- NEW: STREAM AUDIO USING PIPED API (Bypasses YouTube bot block) ---
 exports.streamAudio = async (req, res) => {
     try {
         const { videoId } = req.query;
         if (!videoId) return res.status(400).json({ error: "Video ID is required" });
 
-        const videoUrl = `https://www.youtube.com/watch?v=${videoId}`;
-        const outputPath = path.join(__dirname, `../temp_${videoId}.mp3`);
+        // We use Piped API to bypass YouTube's AWS bot block
+        const instances = [
+            'https://pipedapi.kavin.rocks',
+            'https://pipedapi.adminforge.de',
+            'https://api.piped.private.coffee',
+            'https://pipedapi.reallyaweso.me'
+        ];
 
-        // UPDATED: Added Node.js runtime and Android client to bypass YouTube bot check
-        const command = `yt-dlp -x --audio-format mp3 --js-runtimes node --extractor-args "youtube:player_client=android" -o "${outputPath}" "${videoUrl}"`;
+        let audioUrl = null;
 
-        exec(command, (error, stdout, stderr) => {
-            if (error) {
-                console.error(`yt-dlp error: ${error.message}`);
-                return res.status(500).json({ error: "Failed to download audio" });
-            }
-
-            // Send the file to the app
-            res.sendFile(outputPath, (err) => {
-                // Delete the file after sending to save space
-                if (!err) {
-                    fs.unlink(outputPath, (unlinkErr) => {
-                        if (unlinkErr) console.error("Failed to delete temp file:", unlinkErr);
-                    });
+        for (const instance of instances) {
+            try {
+                const response = await axios.get(`${instance}/streams/${videoId}`);
+                const audioStreams = response.data.audioStreams;
+                if (audioStreams && audioStreams.length > 0) {
+                    // Get the highest quality audio stream
+                    audioUrl = audioStreams[0].url;
+                    break; // Found a working URL, stop trying other instances
                 }
-            });
+            } catch (err) {
+                console.log(`Piped instance ${instance} failed, trying next...`);
+            }
+        }
+
+        if (!audioUrl) {
+            return res.status(500).json({ error: "Could not find audio stream on any Piped instance" });
+        }
+
+        // Fetch the audio stream and pipe it to the user
+        const streamResponse = await axios({
+            method: 'get',
+            url: audioUrl,
+            responseType: 'stream',
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Range': req.headers.range || 'bytes=0-'
+            }
         });
+
+        res.setHeader('Content-Type', 'audio/mpeg');
+        if (streamResponse.headers['content-length']) {
+            res.setHeader('Content-Length', streamResponse.headers['content-length']);
+        }
+        if (streamResponse.headers['accept-ranges']) {
+            res.setHeader('Accept-Ranges', streamResponse.headers['accept-ranges']);
+        }
+        
+        streamResponse.data.pipe(res);
 
     } catch (error) {
         console.error("Stream Error:", error.message);
