@@ -49,7 +49,7 @@ exports.getDownloadLink = async (req, res) => {
     }
 };
 
-// --- NEW: STREAM AUDIO DIRECTLY FROM AWS USING YT-DLP ---
+// --- STREAM AUDIO DIRECTLY FROM AWS USING YT-DLP ---
 exports.streamAudio = async (req, res) => {
     try {
         const { videoId } = req.query;
@@ -58,8 +58,8 @@ exports.streamAudio = async (req, res) => {
         const videoUrl = `https://www.youtube.com/watch?v=${videoId}`;
         const outputPath = path.join(__dirname, `../temp_${videoId}.mp3`);
 
-        // Command to download and extract audio using yt-dlp
-        const command = `yt-dlp -x --audio-format mp3 -o "${outputPath}" "${videoUrl}"`;
+        // UPDATED: Added Node.js runtime and Android client to bypass YouTube bot check
+        const command = `yt-dlp -x --audio-format mp3 --js-runtimes node --extractor-args "youtube:player_client=android" -o "${outputPath}" "${videoUrl}"`;
 
         exec(command, (error, stdout, stderr) => {
             if (error) {
