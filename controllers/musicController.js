@@ -58,8 +58,8 @@ exports.streamAudio = async (req, res) => {
         const videoUrl = `https://www.youtube.com/watch?v=${videoId}`;
         const outputPath = path.join(__dirname, `../temp_${videoId}.mp3`);
 
-        // Command uses Node runtime and local Docker PO Token Provider
-        const command = `yt-dlp -x --audio-format mp3 --js-runtimes node --extractor-args "youtubepot-bgutilhttp:base_url=http://127.0.0.1:4416" -o "${outputPath}" "${videoUrl}"`;
+        // Command explicitly points to Node.js and uses the PO Token Provider
+        const command = `yt-dlp -x --audio-format mp3 --js-runtimes node:/usr/bin/node --extractor-args "youtubepot-bgutilhttp:base_url=http://127.0.0.1:4416" -o "${outputPath}" "${videoUrl}"`;
 
         exec(command, (error, stdout, stderr) => {
             if (error) {
