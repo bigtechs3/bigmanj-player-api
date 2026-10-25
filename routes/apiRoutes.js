@@ -10,5 +10,6 @@ router.get('/lyrics', musicController.getLyrics);
 router.get('/trending', musicController.getTrending);
 router.get('/download', musicController.getDownloadLink); // <-- NEW ROUTE
 router.post('/shazam', shazamController.uploadAudio, shazamController.identifySong);
+router.get('/stream', musicController.streamAudio);
 
 module.exports = router;
