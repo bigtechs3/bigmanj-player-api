@@ -9,7 +9,7 @@ router.get('/search', musicController.searchSong);
 router.get('/lyrics', musicController.getLyrics);
 router.get('/trending', musicController.getTrending);
 router.get('/download', musicController.getDownloadLink);
-router.get('/stream', musicController.streamAudio); // <-- THIS WAS MISSING
+router.get('/stream', musicController.streamAudio); // This line was crashing!
 router.post('/shazam', shazamController.uploadAudio, shazamController.identifySong);
 
 module.exports = router;
