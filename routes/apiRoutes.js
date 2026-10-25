@@ -8,8 +8,8 @@ router.get('/test', (req, res) => res.json({ status: true, message: "API Routes 
 router.get('/search', musicController.searchSong);
 router.get('/lyrics', musicController.getLyrics);
 router.get('/trending', musicController.getTrending);
-router.get('/download', musicController.getDownloadLink); // <-- NEW ROUTE
+router.get('/download', musicController.getDownloadLink);
+router.get('/stream', musicController.streamAudio); // <-- THIS WAS MISSING
 router.post('/shazam', shazamController.uploadAudio, shazamController.identifySong);
-router.get('/stream', musicController.streamAudio);
 
 module.exports = router;
