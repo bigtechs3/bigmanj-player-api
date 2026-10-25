@@ -47,28 +47,49 @@ exports.getDownloadLink = async (req, res) => {
     }
 };
 
-// --- NEW PROXY STREAM FUNCTION ---
+// --- UPDATED PROXY STREAM FUNCTION ---
 exports.streamAudio = async (req, res) => {
     try {
         const { url } = req.query;
         if (!url) return res.status(400).json({ error: "URL is required" });
 
+        // Prepare headers for the CDN request
+        const headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Referer': 'https://www.youtube.com/'
+        };
+
+        // Forward the Range header from the browser to the CDN (for streaming)
+        if (req.headers.range) {
+            headers.Range = req.headers.range;
+        }
+
         const response = await axios({
             method: 'get',
             url: url,
             responseType: 'stream',
-            headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                'Referer': 'https://www.youtube.com/'
-            }
+            headers: headers
         });
 
-        res.setHeader('Content-Type', 'audio/mpeg');
+        // Forward the CDN's headers back to the browser
+        res.setHeader('Content-Type', response.headers['content-type'] || 'audio/mpeg');
+        if (response.headers['content-length']) {
+            res.setHeader('Content-Length', response.headers['content-length']);
+        }
+        if (response.headers['accept-ranges']) {
+            res.setHeader('Accept-Ranges', response.headers['accept-ranges']);
+        }
+        
+        // Set the status code (200 or 206 for partial content)
+        res.status(response.status);
+
+        // Pipe the audio data
         response.data.pipe(res);
 
     } catch (error) {
         console.error("Stream Error:", error.message);
-        res.status(500).json({ error: "Failed to stream audio" });
+        const status = error.response ? error.response.status : 500;
+        res.status(status).json({ error: "Failed to stream audio", details: error.message });
     }
 };
 
